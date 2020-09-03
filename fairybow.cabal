@@ -1,0 +1,76 @@
+name:                fairybow
+version:             0.1.0.0
+-- synopsis:
+-- description:
+homepage:            
+license:             BSD3
+license-file:        LICENSE
+author:              Alex Stuart
+maintainer:          
+copyright:           2019 Alex Stuart
+category:            Game
+build-type:          Simple
+cabal-version:       >=1.10
+extra-source-files:  README.md
+
+library
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5,
+                       bytestring,
+                       containers,
+                       JuicyPixels,
+                       lightarrow,
+                       linear,
+                       GLFW-b,
+                       GPipe,
+                       GPipe-GLFW,
+                       mtl,
+                       OpenGL,
+                       optics,
+                       StateVar,
+                       text,
+                       time,
+                       transformers,
+                       vector,
+                       wavefront
+  default-extensions:  Arrows
+                       BangPatterns
+                       ExistentialQuantification
+                       FlexibleContexts
+                       FlexibleInstances
+                       GADTs
+                       MultiParamTypeClasses
+                       NoMonomorphismRestriction
+                       PatternSynonyms
+                       PolyKinds
+                       RankNTypes
+                       TupleSections
+                       TypeFamilies
+                       TypeOperators
+                       TypeSynonymInstances
+                       ScopedTypeVariables
+  exposed-modules:     Data.FairyBow
+                       Data.FairyBow.Bitmap
+                       Data.FairyBow.Color
+                       Data.FairyBow.Mesh
+                       Data.FairyBow.Shading
+                       Data.WeakCache
+                       FairyBow
+                       FairyBowPlatformType
+                       Graphics.FairyBow
+                       Graphics.FairyBow.Blit
+                       Graphics.FairyBow.Rasterize
+                       System.FairyBow
+                       System.FairyBow.Actuation
+                       System.FairyBow.Joystick
+                       System.FairyBow.Keyboard
+                       System.FairyBow.Mouse
+                       System.FairyBow.Platform
+                       System.FairyBow.Sensation
+                       System.FairyBow.Timing
+                       System.Lightarrow.Run
+                       Shaders
+                       Shaders.ColorsOnScreen
+                       Shaders.ColorDepthOnScreen
+                       Shaders.Blit
