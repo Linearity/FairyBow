@@ -28,6 +28,7 @@ library
                        mtl,
                        OpenGL,
                        optics,
+                       sdl2-mixer,
                        StateVar,
                        text,
                        time,
@@ -51,6 +52,7 @@ library
                        TypeSynonymInstances
                        ScopedTypeVariables
   exposed-modules:     Data.FairyBow
+                       Data.FairyBow.Audio
                        Data.FairyBow.Bitmap
                        Data.FairyBow.Color
                        Data.FairyBow.Mesh
@@ -61,6 +63,8 @@ library
                        Graphics.FairyBow
                        Graphics.FairyBow.Blit
                        Graphics.FairyBow.Rasterize
+                       Sound.FairyBow
+                       Sound.FairyBow.Playback
                        System.FairyBow
                        System.FairyBow.Actuation
                        System.FairyBow.Joystick

@@ -5,6 +5,7 @@ import           Control.Monad.IO.Class
 import           Data.IORef
 import qualified Data.Map as M
 import qualified Data.Set as S
+import           Data.FairyBow.Audio
 import           Data.FairyBow.Bitmap
 import           Data.FairyBow.Mesh
 import {-# SOURCE #-} Data.FairyBow.Shading
@@ -13,9 +14,15 @@ import           Data.Time.Clock.System
 import           Data.WeakCache
 import           Data.Word
 import           FairyBowPlatformType
+import           Foreign.Marshal.Alloc
+import           Foreign.Ptr
+import           Foreign.Storable
 import           Graphics.GPipe hiding (Color)
 import           Graphics.GPipe.Context.GLFW as GLFW
 import           Linear.Affine
+import           SDL.Mixer hiding (Format, Audio)
+import qualified SDL.Mixer (Audio(..))
+import           SDL.Raw.Mixer (Chunk(..))
 import           System.Lightarrow.Platform
 import           System.Lightarrow.Timing
 import           Shaders.Blit
@@ -23,7 +30,8 @@ import           Shaders.ColorDepthOnScreen
 
 instance Platform (FairyBow os) where
     data Resources (FairyBow os)
-            = Resources {   rLoading    :: LoadingResources os,
+            = Resources {   rAudio      :: AudioResources,
+                            rLoading    :: LoadingResources os,
                             rInput      :: InputResources,
                             rTiming     :: TimingResources,
                             rVideo      :: VideoResources os     }
@@ -31,19 +39,26 @@ instance Platform (FairyBow os) where
                 tR              <- liftIO (newIORef M.empty)
                 w               <- newWindow (WindowFormatColorDepth RGBA8 Depth32)
                                       (defaultWindowConfig "You found the Fairy Bow!")
+                liftIO (openAudio (SDL.Mixer.Audio {    audioFrequency = 44100,
+                                                        audioFormat = FormatS16_Sys,
+                                                        audioOutput = Stereo            })
+                                  1024)
                 kR              <- liftIO (newIORef S.empty)
                 mR              <- liftIO (newIORef S.empty)
+                acR             <- liftIO (newIORef newCache)
                 bcR             <- liftIO (newIORef newCache)
                 mcR             <- liftIO (newIORef newCache)
                 sB              <- compileShader (blit w)
                 (bV, bI)        <- newDummyBuffers
                 t               <- newDummyTexture
+                c               <- newDummyChunk
                 sD              <- compileShader (fst (colorDepthOnScreen w))
-                let ir                                  = InputResources kR mR
-                    lr                                  = LoadingResources bcR mcR
+                let ar                                  = AudioResources c
+                    ir                                  = InputResources kR mR
+                    lr                                  = LoadingResources acR bcR mcR
                     tr                                  = TimingResources tR
                     vr                                  = VideoResources sB bV bI sD t w
-                    r                                   = Resources lr ir tr vr
+                    r                                   = Resources ar lr ir tr vr
                     key k _ KeyState'Released _         = modifyIORef' kR (S.delete k)
                     key k _ KeyState'Pressed _          = modifyIORef' kR (S.insert k)
                     key k x KeyState'Repeating y        = key k x KeyState'Pressed y
@@ -56,6 +71,9 @@ instance Platform (FairyBow os) where
 data InputResources
     = InputResources {  irKeyTable      :: IORef (S.Set Key),
                         irMouseTable    :: IORef (S.Set MouseButton)    }
+
+data AudioResources
+    = AudioResources {  arDummyChunk    :: SDL.Mixer.Chunk    }
 
 data VideoResources os
     = VideoResources {  vrBlitShader    :: CompiledShader os
@@ -77,11 +95,20 @@ data TimingResources
     = TimingResources {     trTimestamps    :: IORef (M.Map TimeGroup [SystemTime])   }
 
 data LoadingResources os
-    = LoadingResources {    lrBitmapCache   :: IORef (WeakCache (Bitmap (FairyBow os))),
+    = LoadingResources {    lrAudioCache    :: IORef (WeakCache (Audio (FairyBow os))),
+                            lrBitmapCache   :: IORef (WeakCache (Bitmap (FairyBow os))),
                             lrMeshCache     :: IORef (WeakCache (Mesh (Point V3 Float, Color) (FairyBow os)))   }
 
 instance MonadPlatform (FairyBow os) (FairyBow os) where
     liftPlatform = id
+
+newDummyChunk = do  pc  <- liftIO (malloc :: IO (Ptr SDL.Raw.Mixer.Chunk))
+                    let c = SDL.Raw.Mixer.Chunk {   chunkAllocated  = 0,
+                                                    chunkAbuf       = nullPtr,
+                                                    chunkAlen       = 0,
+                                                    chunkVolume     = 0     }
+                    liftIO (poke pc c)
+                    return (SDL.Mixer.Chunk pc)
 
 newDummyTexture = do    tex     <- newTexture2D RGBA8 (V2 8 8) 1
                         let  black   = V4 minBound minBound minBound maxBound

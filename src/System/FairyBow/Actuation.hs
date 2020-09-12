@@ -4,6 +4,7 @@
 module System.FairyBow.Actuation  where
 
 import           Control.Monad.State
+import           Data.FairyBow.Audio
 import           Data.FairyBow.Bitmap
 import           Data.FairyBow.Mesh
 import           Data.FairyBow.Shading
@@ -17,6 +18,7 @@ import           Data.Typeable
 import           FairyBowPlatformType
 import           Graphics.GPipe hiding (Color)
 import           Linear.Affine
+import           SDL.Mixer hiding (Audio)
 import           System.Lightarrow.Actuation
 import           System.FairyBow.Platform
 
@@ -41,16 +43,18 @@ data Command a where
                         -> (Double, Double)
                         -> (Double, Double, Double)
                         -> Command a
-    Mix         :: () -> () -> Command a
+    DirectOut   :: IO () -> Command a
     Rasterize   :: (Vertex v, LA.Uniform u) => Mesh v a -> Shading v u a -> Command a
 
 data BatchKey os    =   RasterizeBatch (Shading (Point V3 Float, Color) (M44 Float, M44 Float) (FairyBow os))
                     |   BlitBatch Double (Bitmap (FairyBow os)) Color
+                    |   DirectBatch
     deriving (Eq, Ord)
 
 data BatchElement os where
     RasterizeElement    :: Mesh (Point V3 Float, Color) (FairyBow os) -> (UniformFunc (M44 Float, M44 Float)) -> BatchElement os
     BlitElement         :: (Double, Double) -> (Double, Double, Double) -> BatchElement os
+    DirectElement       :: IO () -> BatchElement os
 
 batch r cs  = foldlWithKey accumulate (return ()) table
     where   table   = foldl tabulate empty cs
@@ -69,11 +73,15 @@ batch r cs  = foldlWithKey accumulate (return ()) table
                     = t
             tabulate t (Blit b c (w, h) (x, y, z))
                     = insertWith (++) (BlitBatch z b c) [BlitElement (w, h) (x, y, z)] t
+            tabulate t (DirectOut a)
+                    = insertWith (++) DirectBatch [DirectElement a] t
 
 executeBatch r (RasterizeBatch s) es
     = execRasterize r s [(m, f) | RasterizeElement m f <- es]
 executeBatch r (BlitBatch z b c) es
     = execBlit r b c [(s, x) | BlitElement s x <- es]
+executeBatch r DirectBatch es
+    = sequence_ [liftIO a | DirectElement a <- es]
 
 execRasterize r s mfs
             = do    V2 w h      <- getFrameBufferSize win
@@ -151,7 +159,7 @@ instance Eq (Command a) where
 instance Ord (Command a) where
     Blit _ _ _ (_, _,z1)  `compare`   Blit _ _ _ (_, _, z2) = compare z1 z2
     Blit _ _ _ _          `compare`   Rasterize _ _       = LT
-    Rasterize _ _       `compare`   Mix _ _             = LT
+    Rasterize _ _       `compare`   DirectOut _         = LT
     Rasterize _ _       `compare`   Blit _ _ _ _          = GT
-    Mix _ _             `compare`   Rasterize _ _       = GT
+    DirectOut _         `compare`   Rasterize _ _       = GT
     _                   `compare`   _                   = EQ

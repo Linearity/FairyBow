@@ -2,6 +2,7 @@ module System.FairyBow.Platform where
 
 import           Data.IORef
 import {-# SOURCE #-} Data.FairyBow.Shading
+import           Data.Lightarrow.Audio
 import           Data.Lightarrow.Bitmap
 import           Data.Lightarrow.Color
 import           Data.Lightarrow.Mesh
@@ -14,11 +15,13 @@ import           FairyBowPlatformType
 import           Graphics.GPipe hiding (Color)
 import           Graphics.GPipe.Context.GLFW
 import           Linear.Affine
+import           SDL.Mixer hiding (Format, Audio)
 import           System.Lightarrow.Platform
 import           System.Lightarrow.Timing
 
 instance Platform (FairyBow os)
 
+rAudio :: Resources (FairyBow os) -> AudioResources
 rInput :: Resources (FairyBow os) -> InputResources
 rLoading :: Resources (FairyBow os) -> LoadingResources os
 rTiming :: Resources (FairyBow os) -> TimingResources
@@ -27,6 +30,9 @@ rVideo :: Resources (FairyBow os) -> VideoResources os
 data InputResources
     = InputResources {  irKeyTable      :: IORef (S.Set Key),
                         irMouseTable    :: IORef (S.Set MouseButton)    }
+
+data AudioResources
+    = AudioResources {  arDummyChunk    :: SDL.Mixer.Chunk    }
 
 data VideoResources os
     = VideoResources {  vrBlitShader    :: CompiledShader os
@@ -48,5 +54,6 @@ data TimingResources
     = TimingResources {     trTimestamps    :: IORef (M.Map TimeGroup [SystemTime])   }
 
 data LoadingResources os
-    = LoadingResources {    lrBitmapCache   :: IORef (WeakCache (Bitmap (FairyBow os))),
+    = LoadingResources {    lrAudioCache    :: IORef (WeakCache (Audio (FairyBow os))),
+                            lrBitmapCache   :: IORef (WeakCache (Bitmap (FairyBow os))),
                             lrMeshCache     :: IORef (WeakCache (Mesh (Point V3 Float, Color) (FairyBow os)))   }
