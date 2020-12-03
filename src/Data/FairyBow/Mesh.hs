@@ -90,10 +90,10 @@ instance WeakCacheValue (FairyBow os) (Mesh (Point V3 Float, Color) (FairyBow os
                     liftIO (do  putStr ("Load OBJ from " ++ show p ++ "...")
                                 hFlush stdout)
                     case objOrMsg of
-                        Left _  -> do   liftIO (putStrLn ("failed."))
+                        Left _  -> do   liftIO (putStrLn "failed.")
                                         return (Mesh p [] [] Nothing)
                         Right object
-                            -> do   liftIO (putStrLn ("done."))
+                            -> do   liftIO (putStrLn "done.")
                                     let     vs      = zip (V.toList (V.map convertV ls)) colors
                                             is      = concatMap indices fs
                                             colors  = repeat Black
@@ -126,9 +126,9 @@ instance WeakCacheValue (FairyBow os) (Mesh (Point V3 Float, Color) (FairyBow os
 instance (  FileLocation (Location (Mesh (Point V3 Float, Color) (FairyBow os))),
             WeakCacheValue (FairyBow os) (Mesh (Point V3 Float, Color) (FairyBow os))   )
                 => LoadPlatform (Mesh (Point V3 Float, Color) (FairyBow os)) (FairyBow os) where
-    request r l
+    request _r l
         = return (Mesh (toPath l) [] [] Nothing)
-    load r m@(Mesh p _ _ (Just _))
+    load _r m@(Mesh _ _ _ (Just _))
         = return m
     load r (Mesh p _ _ Nothing)
         = do    let cacheRef = lrMeshCache (rLoading r)
@@ -136,4 +136,4 @@ instance (  FileLocation (Location (Mesh (Point V3 Float, Color) (FairyBow os)))
                 (m, cache1)     <- cacheLoad p cache0
                 liftIO (writeIORef cacheRef cache1)
                 return m
-    unload _ (Mesh p vs fs _) = return (Mesh p [] [] Nothing)
+    unload _ (Mesh p _ _ _) = return (Mesh p [] [] Nothing)

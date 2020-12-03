@@ -7,8 +7,6 @@ import qualified Data.ByteString as B
 import           Data.IORef
 import           Data.Lightarrow.Artifact
 import           Data.Lightarrow.Audio
-import           Data.Vector.Storable as SV ((!))
-import qualified Data.Vector.Storable as SV
 import           Data.WeakCache
 import           FairyBowPlatformType
 import           SDL.Mixer hiding (load, Audio(..))
@@ -47,9 +45,9 @@ instance WeakCacheValue (FairyBow os) (Audio (FairyBow os)) where
 instance (  FileLocation (Location (Audio (FairyBow os))),
             WeakCacheValue (FairyBow os) (Audio (FairyBow os))     )
                 => LoadPlatform (Audio (FairyBow os)) (FairyBow os) where
-    request r a
+    request _r a
         = return (Audio (toPath a) Nothing)
-    load r b@(Audio p (Just _))
+    load _r b@(Audio _p (Just _))
         = return b
     load r (Audio p Nothing)
         = do    let cacheRef = lrAudioCache (rLoading r)
@@ -57,4 +55,4 @@ instance (  FileLocation (Location (Audio (FairyBow os))),
                 (b, cache1)     <- cacheLoad p cache0
                 liftIO (writeIORef cacheRef cache1)
                 return b
-    unload r b@(Audio p _) = return (Audio p Nothing)
+    unload _r (Audio p _) = return (Audio p Nothing)

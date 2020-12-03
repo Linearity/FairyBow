@@ -20,7 +20,7 @@ type UniformFunc u = V2 Int -> u
 
 defaultUniformFunc :: UniformFunc (M44 Float, M44 Float)
 
-data EqCompiledShader os e = EqCompiledShader (Int, CompiledShader os e)
+newtype EqCompiledShader os e = EqCompiledShader (Int, CompiledShader os e)
 
 instance ArtifactPlatform (Shading v u (FairyBow os)) (FairyBow os)
             => ShadingPlatform v u (FairyBow os)

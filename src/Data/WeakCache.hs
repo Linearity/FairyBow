@@ -9,7 +9,7 @@ class Ord (Name a) => WeakCacheValue m a where
     type Name a
     load        :: Name a -> m a
 
-data WeakCache a = WeakCache (M.Map (Name a) (Weak a))
+newtype WeakCache a = WeakCache (M.Map (Name a) (Weak a))
 
 newCache :: WeakCache a
 newCache = WeakCache M.empty

@@ -7,5 +7,5 @@ module FairyBow (    module Data.FairyBow,
 import Data.FairyBow
 import Graphics.FairyBow()
 import Shaders
-import Sound.FairyBow
+import Sound.FairyBow()
 import System.FairyBow

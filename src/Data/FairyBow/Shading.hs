@@ -36,7 +36,7 @@ defaultUniformFunc :: UniformFunc (M44 Float, M44 Float)
 defaultUniformFunc d = (Linear.identity, Linear.ortho (-w/2) (w/2) (-h/2) (h/2) (-10000) 10000)
     where   V2 w h = fmap fromIntegral d
 
-data EqCompiledShader os e = EqCompiledShader (Int, CompiledShader os e)
+newtype EqCompiledShader os e = EqCompiledShader (Int, CompiledShader os e)
 
 instance ArtifactPlatform   (Shading    (Point V3 Float, Color)
                                         (M44 Float, M44 Float)
