@@ -1,4 +1,5 @@
 module Shaders (    module Shaders.Blit,
+                    module Shaders.Fill,
                     module Shaders.ColorsOnScreen,
                     module Shaders.ColorDepthOnScreen,
                     VertexColorShading,
@@ -8,6 +9,7 @@ import Graphics.GPipe hiding (Color)
 
 import {-# SOURCE #-} Data.FairyBow.Shading
 import Shaders.Blit
+import Shaders.Fill
 import Shaders.ColorsOnScreen
 import Shaders.ColorDepthOnScreen
 
@@ -20,5 +22,3 @@ type VertexColorShading os = (  Shader os
 
 vertexColorShadings :: [Window os RGBAFloat Depth -> VertexColorShading os]
 vertexColorShadings = [colorsOnScreen, colorDepthOnScreen]
-
-

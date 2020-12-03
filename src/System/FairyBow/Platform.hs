@@ -26,6 +26,7 @@ import           SDL.Raw.Mixer (Chunk(..))
 import           System.Lightarrow.Platform
 import           System.Lightarrow.Timing
 import           Shaders.Blit
+import           Shaders.Fill
 import           Shaders.ColorDepthOnScreen
 
 instance Platform (FairyBow os) where
@@ -38,7 +39,9 @@ instance Platform (FairyBow os) where
     setup = do  t               <- liftIO getSystemTime
                 tR              <- liftIO (newIORef M.empty)
                 w               <- newWindow (WindowFormatColorDepth RGBA8 Depth32)
-                                      (defaultWindowConfig "You found the Fairy Bow!")
+                                      ((defaultWindowConfig "You found the Fairy Bow!")
+                                        {   configWidth     = 160 * 4,
+                                            configHeight    = 144 * 4   })
                 liftIO (openAudio (SDL.Mixer.Audio {    audioFrequency = 44100,
                                                         audioFormat = FormatS16_Sys,
                                                         audioOutput = Stereo            })
@@ -49,6 +52,7 @@ instance Platform (FairyBow os) where
                 bcR             <- liftIO (newIORef newCache)
                 mcR             <- liftIO (newIORef newCache)
                 sB              <- compileShader (blit w)
+                sF              <- compileShader (fill w)
                 (bV, bI)        <- newDummyBuffers
                 t               <- newDummyTexture
                 c               <- newDummyChunk
@@ -57,7 +61,7 @@ instance Platform (FairyBow os) where
                     ir                                  = InputResources kR mR
                     lr                                  = LoadingResources acR bcR mcR
                     tr                                  = TimingResources tR
-                    vr                                  = VideoResources sB bV bI sD t w
+                    vr                                  = VideoResources sB bV bI sD t sF w
                     r                                   = Resources ar lr ir tr vr
                     key k _ KeyState'Released _         = modifyIORef' kR (S.delete k)
                     key k _ KeyState'Pressed _          = modifyIORef' kR (S.insert k)
@@ -78,8 +82,7 @@ data AudioResources
 data VideoResources os
     = VideoResources {  vrBlitShader    :: CompiledShader os
                                             (   V2 Int,
-                                                Buffer os (Uniform (    V4 (B4 Float),
-                                                                        V4 (B4 Float)   )),
+                                                Buffer os (Uniform (V4 (B4 Float), B4 Float)),
                                                 PrimitiveArray Triangles (B4 Float, B2 Float),
                                                 Texture2D os (Format RGBAFloat)     ),
                         vrDummyVBuffer  :: Buffer os (B4 Float, B4 Float),
@@ -89,6 +92,11 @@ data VideoResources os
                                                     (B4 Float, B4 Float)
                                                     (V4 (B4 Float), V4 (B4 Float))),
                         vrDummyTexture  :: Texture2D os (Format RGBAFloat),
+                        vrFillShader    :: CompiledShader os
+                                            (   V2 Int,
+                                                Buffer os (Uniform (    V4 (B4 Float),
+                                                                        B4 Float)),
+                                                PrimitiveArray Triangles (B4 Float)     ),  
                         vrWindow        :: Window os RGBAFloat Depth    }
 
 data TimingResources
@@ -97,7 +105,8 @@ data TimingResources
 data LoadingResources os
     = LoadingResources {    lrAudioCache    :: IORef (WeakCache (Audio (FairyBow os))),
                             lrBitmapCache   :: IORef (WeakCache (Bitmap (FairyBow os))),
-                            lrMeshCache     :: IORef (WeakCache (Mesh (Point V3 Float, Color) (FairyBow os)))   }
+                            lrMeshCache     :: IORef (WeakCache (Mesh (Point V3 Float, Color) (FairyBow os))),
+                            lrTextCache     :: IORef (WeakCache (T.Text))   }
 
 instance MonadPlatform (FairyBow os) (FairyBow os) where
     liftPlatform = id

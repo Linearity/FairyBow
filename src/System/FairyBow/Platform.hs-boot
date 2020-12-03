@@ -48,6 +48,11 @@ data VideoResources os
                                                         (B4 Float, B4 Float)
                                                         (V4 (B4 Float), V4 (B4 Float))),
                         vrDummyTexture  :: Texture2D os (Format RGBAFloat),
+                        vrFillShader    :: CompiledShader os
+                                            (   V2 Int,
+                                                Buffer os (Uniform (    V4 (B4 Float),
+                                                                        B4 Float)),
+                                                PrimitiveArray Triangles (B4 Float)     ),
                         vrWindow        :: Window os RGBAFloat Depth    }
 
 data TimingResources
