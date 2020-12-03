@@ -57,12 +57,14 @@ library
                        Data.FairyBow.Color
                        Data.FairyBow.Mesh
                        Data.FairyBow.Shading
+                       Data.FairyBow.Text
                        Data.WeakCache
                        FairyBow
                        FairyBowPlatformType
                        Graphics.FairyBow
                        Graphics.FairyBow.Blit
                        Graphics.FairyBow.Rasterize
+                       Graphics.FairyBow.Rectangle
                        Sound.FairyBow
                        Sound.FairyBow.Playback
                        System.FairyBow
@@ -78,3 +80,4 @@ library
                        Shaders.ColorsOnScreen
                        Shaders.ColorDepthOnScreen
                        Shaders.Blit
+                       Shaders.Fill
