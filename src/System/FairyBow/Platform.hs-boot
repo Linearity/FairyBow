@@ -8,6 +8,7 @@ import           Data.Lightarrow.Color
 import           Data.Lightarrow.Mesh
 import qualified Data.Map as M
 import qualified Data.Set as S
+import qualified Data.Text as T
 import           Data.Time.Clock.System
 import           Data.WeakCache
 import           Data.Word
@@ -37,8 +38,7 @@ data AudioResources
 data VideoResources os
     = VideoResources {  vrBlitShader    :: CompiledShader os
                                             (   V2 Int,
-                                                Buffer os (Uniform (    V4 (B4 Float),
-                                                                        V4 (B4 Float)   )),
+                                                Buffer os (Uniform (V4 (B4 Float), B4 Float)),
                                                 PrimitiveArray Triangles (B4 Float, B2 Float),
                                                 Texture2D os (Format RGBAFloat)     ),
                         vrDummyVBuffer  :: Buffer os (B4 Float, B4 Float),
@@ -61,4 +61,5 @@ data TimingResources
 data LoadingResources os
     = LoadingResources {    lrAudioCache    :: IORef (WeakCache (Audio (FairyBow os))),
                             lrBitmapCache   :: IORef (WeakCache (Bitmap (FairyBow os))),
-                            lrMeshCache     :: IORef (WeakCache (Mesh (Point V3 Float, Color) (FairyBow os)))   }
+                            lrMeshCache     :: IORef (WeakCache (Mesh (Point V3 Float, Color) (FairyBow os))),
+                            lrTextCache     :: IORef (WeakCache T.Text)     }

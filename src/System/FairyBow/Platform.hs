@@ -10,6 +10,7 @@ import           Data.FairyBow.Bitmap
 import           Data.FairyBow.Mesh
 import {-# SOURCE #-} Data.FairyBow.Shading
 import           Data.Lightarrow.Color
+import qualified Data.Text as T
 import           Data.Time.Clock.System
 import           Data.WeakCache
 import           Data.Word
@@ -51,6 +52,7 @@ instance Platform (FairyBow os) where
                 acR             <- liftIO (newIORef newCache)
                 bcR             <- liftIO (newIORef newCache)
                 mcR             <- liftIO (newIORef newCache)
+                tcR             <- liftIO (newIORef newCache)
                 sB              <- compileShader (blit w)
                 sF              <- compileShader (fill w)
                 (bV, bI)        <- newDummyBuffers
@@ -59,7 +61,7 @@ instance Platform (FairyBow os) where
                 sD              <- compileShader (fst (colorDepthOnScreen w))
                 let ar                                  = AudioResources c
                     ir                                  = InputResources kR mR
-                    lr                                  = LoadingResources acR bcR mcR
+                    lr                                  = LoadingResources acR bcR mcR tcR
                     tr                                  = TimingResources tR
                     vr                                  = VideoResources sB bV bI sD t sF w
                     r                                   = Resources ar lr ir tr vr
