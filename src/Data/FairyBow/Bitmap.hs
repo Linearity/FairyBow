@@ -86,6 +86,20 @@ instance WeakCacheValue (FairyBow os) (Bitmap (FairyBow os)) where
                                                     solids  = imageData image
                                             t   <- writeNewTexture colors w h
                                             return (Bitmap p (w, h) (Just t))
+                        Right (ImageYA8 image)
+                                    -> do   liftIO (putStrLn "done.")
+                                            let     colors  = SV.generate n mkColor
+                                                    w       = imageWidth image
+                                                    h       = imageHeight image
+                                                    n       = 2 * SV.length grays
+                                                    mkColor k
+                                                        | k `mod` 4 == 2
+                                                            = grays ! (k `div` 2 - 1)
+                                                        | otherwise
+                                                            = grays ! (k `div` 2)
+                                                    grays   = imageData image
+                                            t   <- writeNewTexture colors w h
+                                            return (Bitmap p (w, h) (Just t))
                         Right (ImageY8 image)
                                     -> do   liftIO (putStrLn "done.")
                                             let     colors  = SV.generate n mkColor
