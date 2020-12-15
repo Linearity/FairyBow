@@ -225,9 +225,10 @@ instance Eq (Command a) where
     _ == _  = False
 
 instance Ord (Command a) where
-    Blit _ _ _ (_, _,z1)  `compare`   Blit _ _ _ (_, _, z2) = compare z1 z2
-    Blit {}               `compare`   Rasterize _ _       = LT
-    Rasterize _ _       `compare`   DirectOut _         = LT
-    Rasterize _ _       `compare`   Blit {}               = GT
-    DirectOut _         `compare`   Rasterize _ _       = GT
-    _                   `compare`   _                   = EQ
+    Blit _ _ _ (_,_,z1)         `compare`   Blit _ _ _ (_,_,z2)         = compare z1 z2
+    Blit {}                     `compare`   Rasterize _ _               = LT
+    Rasterize _ _               `compare`   DirectOut _                 = LT
+    Rasterize _ _               `compare`   Blit {}                     = GT
+    Rectangle _ _ (_,_,z1)      `compare`   Rectangle _ _ (_,_,z2)      = compare z1 z2
+    DirectOut _                 `compare`   Rasterize _ _               = GT
+    _                           `compare`   _                           = EQ
