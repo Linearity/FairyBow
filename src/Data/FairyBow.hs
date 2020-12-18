@@ -10,4 +10,4 @@ import Data.FairyBow.Bitmap
 import Data.FairyBow.Color
 import Data.FairyBow.Mesh
 import Data.FairyBow.Shading
-import Data.FairyBow.Text
+import Data.FairyBow.Text()
