@@ -42,7 +42,7 @@ packages:
 #
 extra-deps:
   - git: https://github.com/Linearity/lightarrow.git
-    commit: 54d42d313cab519d379642d5cdaaf02d0cd50a5a
+    commit: b8ad71186e3f24a0cb4c25abf6a994c36980f112
   - git: https://github.com/Linearity/dunai.git
     commit: 80b23457458e07939c1e7bc575b19ebfc30b051e
     subdirs:
