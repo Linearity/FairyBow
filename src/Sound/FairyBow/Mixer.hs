@@ -1,12 +1,12 @@
 {-# LANGUAGE UndecidableInstances #-}
 
-module Sound.FairyBow.Playback where
+module Sound.FairyBow.Mixer where
 
 import              Data.FairyBow.Audio
 import              FairyBowPlatformType
 import              SDL.Mixer hiding (Audio, Channel)
 import qualified    SDL.Mixer (Channel)
-import              Sound.Lightarrow.Playback
+import              Sound.Lightarrow.Mixer
 import              System.FairyBow.Actuation
 import              System.Lightarrow.Actuation
 
@@ -17,9 +17,6 @@ instance ActuatePlatform (FairyBow os)
     stop (Channel c)    = Actuation [DirectOut (halt c)]
     fade (Channel c) x  = let v = floor (fromUnitReal x * 128)
                             in Actuation [DirectOut (setVolume v c)]
-
-instance (ActuatePlatform (FairyBow os), MixerPlatform (FairyBow os))
-            => PlaybackPlatform (FairyBow os) where
     play (Channel chan) (Audio _ mc)
         = Actuation (case mc of
                         Just chunk  -> [    DirectOut (do   playOn chan Once chunk
