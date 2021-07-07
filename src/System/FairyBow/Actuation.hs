@@ -39,6 +39,7 @@ data Command a where
     Blit        :: Bitmap a
                         -> Color
                         -> (Double, Double)
+                        -> Double
                         -> (Double, Double, Double)
                         -> Command a
     DirectOut   :: IO () -> Command a
@@ -62,6 +63,7 @@ data BatchKey os    =   BlitBatch Double (Bitmap (FairyBow os)) Color
 
 data BatchElement os where
     BlitElement         :: (Double, Double)
+                                -> Double
                                 -> (Double, Double, Double)
                                 -> BatchElement os
     DirectElement       :: IO () -> BatchElement os
@@ -79,10 +81,10 @@ batch r cs  = foldlWithKey accumulate (return ()) table
             tabulate :: Map (BatchKey os) [BatchElement os]
                             -> Command (FairyBow os)
                             -> Map (BatchKey os) [BatchElement os]
-            tabulate t (Blit b c (w, h) (x, y, z))
+            tabulate t (Blit b c (w, h) r (x, y, z))
                     = insertWith    (++)
                                     (BlitBatch z b c)
-                                    [BlitElement (w, h) (x, y, z)]
+                                    [BlitElement (w, h) r (x, y, z)]
                                     t
             tabulate t (DirectOut a)
                     = insertWith    (++)
@@ -107,7 +109,7 @@ batch r cs  = foldlWithKey accumulate (return ()) table
                                     t
 
 executeBatch r (BlitBatch z b c) es
-    = execBlit r b c [(s, x) | BlitElement s x <- es]
+    = execBlit r b c [(s, r, x) | BlitElement s r x <- es]
 executeBatch r DirectBatch es
     = sequence_ [liftIO a | DirectElement a <- es]
 executeBatch r (RasterizeBatch (EqCompiledShader (_, sC))) es
@@ -174,16 +176,16 @@ splitArrays aV aI bs    = (arraysV, arraysI)
             arraysI  = [    takeIndices n (dropIndices k aI)
                                 | (n, k) <- lengthsI `zip` offsetsI     ]
 
-execBlit r b@Bitmap { bitmapTexture = Nothing } c sxs
-    = execBlit r (b { bitmapTexture = bitmapTexture (dummy r) }) c sxs
-execBlit r (Bitmap _ (wB, hB) (Just t)) c sxs
+execBlit r b@Bitmap { bitmapTexture = Nothing } c srxs
+    = execBlit r (b { bitmapTexture = bitmapTexture (dummy r) }) c srxs
+execBlit r (Bitmap _ (wB, hB) (Just t)) c srxs
     = do    dF          <- getFrameBufferSize win
             let proj    = screenSpaceOrtho dF
             bufU        <- singleUniform (proj, convert c)
-            bufV :: Buffer os (B4 Float, B2 Float) <- newBuffer (6 * length sxs)
+            bufV :: Buffer os (B4 Float, B2 Float) <- newBuffer (6 * length srxs)
             let wBF     = fromIntegral wB
                 hBF     = fromIntegral hB 
-                vs      = concat [ rect (w * wBF, h * hBF) x | ((w, h), x) <- sxs ]
+                vs      = concat [ rect (w * wBF, h * hBF) r x | ((w, h), r, x) <- srxs ]
             writeBuffer bufV 0 vs
             render (do  arrayV  <- newVertexArray bufV
                         let  p  = toPrimitiveArray TriangleList arrayV
@@ -197,7 +199,7 @@ execRectangle r c dxs
             let proj    = screenSpaceOrtho dF 
             bufU        <- singleUniform (proj, convert c)
             bufV :: Buffer os (B4 Float) <- newBuffer (6 * length dxs)
-            let vs      = concat [ [ x | (x, _uv) <- rect d x ] | (d, x) <- dxs ]
+            let vs      = concat [ [ x | (x, _uv) <- rect (w,h) 0 (x + w/2, y + h/2, z) ] | ((w,h), (x,y,z)) <- dxs ]
             writeBuffer bufV 0 vs
             render (do  arrayV  <- newVertexArray bufV
                         let  p  = toPrimitiveArray TriangleList arrayV
@@ -213,19 +215,23 @@ singleUniform x = do    bufU <- newBuffer 1
                         writeBuffer bufU 0 [x]
                         return bufU
 
-rect (w, h) (x, y, z) = [    (V4 x' y' z' 1, uv)
+rect (w, h) r (x, y, z) = [     (V4 x' y' z' 1, uv)
                                     |   (V2 xC yC, uv) <- zip corners texCoords,
-                                        let x'  = realToFrac (x + w * xC)
-                                            y'  = realToFrac (y + h * yC)
+                                        let V2 x' y' = fmap realToFrac (V2 x y) + vX + vY
+                                            vX  = fmap realToFrac (w * xC *^ angle r)
+                                            vY  = fmap realToFrac (h * yC *^ perp (angle r))
+                                            --x'  = realToFrac (x + w * xC)
+                                            --y'  = realToFrac (y + h * yC)
                                             z'  = realToFrac z   ]
-    where   corners     = [V2 0 1, V2 0 0, V2 1 1, V2 1 1, V2 0 0, V2 1 0]
+    -- where   corners     = [V2 0 1, V2 0 0, V2 1 1, V2 1 1, V2 0 0, V2 1 0]
+    where   corners     = [V2 (-0.5) 0.5, V2 (-0.5) (-0.5), V2 0.5 0.5, V2 0.5 0.5, V2 (-0.5) (-0.5), V2 0.5 (-0.5)]
             texCoords   = [V2 0 0, V2 0 1, V2 1 0, V2 1 0, V2 0 1, V2 1 1]
 
 instance Eq (Command a) where
     _ == _  = False
 
 instance Ord (Command a) where
-    Blit _ _ _ (_,_,z1)         `compare`   Blit _ _ _ (_,_,z2)         = compare z1 z2
+    Blit _ _ _ _ (_,_,z1)       `compare`   Blit _ _ _ _ (_,_,z2)       = compare z1 z2
     Blit {}                     `compare`   Rasterize _ _               = LT
     Rasterize _ _               `compare`   DirectOut _                 = LT
     Rasterize _ _               `compare`   Blit {}                     = GT

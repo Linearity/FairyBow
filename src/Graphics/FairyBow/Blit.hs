@@ -9,4 +9,4 @@ import System.Lightarrow.Actuation
 
 instance ActuatePlatform (FairyBow os)
             => BlitPlatform (FairyBow os) where
-    blit b c d x = Actuation [Blit b c d x]
+    blit b c d r x = Actuation [Blit b c d r x]
