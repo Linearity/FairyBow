@@ -31,6 +31,7 @@ library
                        sdl2-mixer,
                        StateVar,
                        text,
+                       tf-random,
                        time,
                        transformers,
                        vector,
@@ -73,6 +74,7 @@ library
                        System.FairyBow.Keyboard
                        System.FairyBow.Mouse
                        System.FairyBow.Platform
+                       System.FairyBow.Random
                        System.FairyBow.Sensation
                        System.FairyBow.Timing
                        System.Lightarrow.Run

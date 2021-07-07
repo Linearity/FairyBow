@@ -26,6 +26,7 @@ import qualified SDL.Mixer (Audio(..))
 import           SDL.Raw.Mixer (Chunk(..))
 import           System.Lightarrow.Platform
 import           System.Lightarrow.Timing
+import           System.Random.TF
 import           Shaders.Blit
 import           Shaders.Fill
 import           Shaders.ColorDepthOnScreen
@@ -35,6 +36,7 @@ instance Platform (FairyBow os) where
             = Resources {   rAudio      :: AudioResources,
                             rLoading    :: LoadingResources os,
                             rInput      :: InputResources,
+                            rRandom     :: RandomResources,
                             rTiming     :: TimingResources,
                             rVideo      :: VideoResources os     }
     setup = do  t               <- liftIO getSystemTime
@@ -49,6 +51,7 @@ instance Platform (FairyBow os) where
                                   1024)
                 kR              <- liftIO (newIORef S.empty)
                 mR              <- liftIO (newIORef S.empty)
+                rR              <- liftIO (newTFGen >>= newIORef)
                 acR             <- liftIO (newIORef newCache)
                 bcR             <- liftIO (newIORef newCache)
                 mcR             <- liftIO (newIORef newCache)
@@ -62,9 +65,10 @@ instance Platform (FairyBow os) where
                 let ar                                  = AudioResources c
                     ir                                  = InputResources kR mR
                     lr                                  = LoadingResources acR bcR mcR tcR
+                    rr                                  = RandomResources rR
                     tr                                  = TimingResources tR
                     vr                                  = VideoResources sB bV bI sD t sF w
-                    r                                   = Resources ar lr ir tr vr
+                    r                                   = Resources ar lr ir rr tr vr
                     key k _ KeyState'Released _         = modifyIORef' kR (S.delete k)
                     key k _ KeyState'Pressed _          = modifyIORef' kR (S.insert k)
                     key k x KeyState'Repeating y        = key k x KeyState'Pressed y
@@ -100,6 +104,9 @@ data VideoResources os
                                                                         B4 Float)),
                                                 PrimitiveArray Triangles (B4 Float)     ),  
                         vrWindow        :: Window os RGBAFloat Depth    }
+
+data RandomResources
+    = RandomResources {     rrGenerator     :: IORef TFGen  }
 
 data TimingResources
     = TimingResources {     trTimestamps    :: IORef (M.Map TimeGroup [SystemTime])   }
