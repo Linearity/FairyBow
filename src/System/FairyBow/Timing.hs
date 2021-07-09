@@ -2,6 +2,7 @@
 
 module System.FairyBow.Timing where
 
+import           Control.DeepSeq
 import           Control.Monad.IO.Class
 import           Data.IORef
 import qualified Data.Map.Strict as M
@@ -16,7 +17,7 @@ type instance TimeGroup = ()
 instance Ord TimeGroup => TimingPlatform (FairyBow os) where
     timeStep r g = liftIO (getStep g tR)
         where   Resources { rTiming = TimingResources { trTimestamps = tR } } = r
-    stepRate r g = liftIO (readIORef tR >>= return . rate g)
+    stepRate r g = liftIO (rate g <$> readIORef tR)
         where   Resources { rTiming = TimingResources { trTimestamps = tR } } = r
 
 {- The time step comes from the `getTimeStep` action, to which we provide the `IORef` we allocated in `main`. -}
@@ -25,8 +26,8 @@ getStep :: Ord TimeGroup =>
                 TimeGroup -> IORef (M.Map TimeGroup [SystemTime]) -> IO Double
 getStep g ref = do  !t1     <- getSystemTime
                     groups  <- readIORef ref
-                    let addNew      = maybe (Just (replicate 30 t1)) (return . (t1 :) . init)
-                        newGroups   = M.alter addNew g groups
+                    let addNew      = maybe (Just (replicate 30 t1)) (force . return . (t1 :) . init)
+                        !newGroups  = M.alter addNew g groups
                         t0:_        = fromMaybe [t1] (M.lookup g groups) -- but always Just
                     writeIORef ref newGroups
                     return (timeInSeconds t1 - timeInSeconds t0)

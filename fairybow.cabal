@@ -19,6 +19,7 @@ library
   build-depends:       base >= 4.7 && < 5,
                        bytestring,
                        containers,
+                       deepseq,
                        JuicyPixels,
                        lightarrow,
                        linear,
