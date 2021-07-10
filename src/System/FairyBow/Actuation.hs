@@ -182,13 +182,12 @@ execBlit r (Bitmap _ (wB, hB) (Just t)) c srxs
     = do    dF          <- getFrameBufferSize win
             let proj    = screenSpaceOrtho dF
             bufU        <- singleUniform (proj, convert c)
-            bufV :: Buffer os (B4 Float, B2 Float) <- newBuffer (6 * length srxs)
             let wBF     = fromIntegral wB
                 hBF     = fromIntegral hB 
                 vs      = concat [ rect (w * wBF, h * hBF) r x | ((w, h), r, x) <- srxs ]
-            writeBuffer bufV 0 vs
-            render (do  arrayV  <- newVertexArray bufV
-                        let  p  = toPrimitiveArray TriangleList arrayV
+            writeBuffer (vrBlitVBuffer (rVideo r)) 0 vs
+            render (do  arrayV  <- newVertexArray (vrBlitVBuffer (rVideo r))
+                        let  p  = toPrimitiveArray TriangleList (takeVertices (6 * length srxs) arrayV)
                              u  = bufU
                         sC (dF, u, p, t))
     where   win     = vrWindow (rVideo r)
@@ -198,11 +197,10 @@ execRectangle r c dxs
     = do    dF          <- getFrameBufferSize win
             let proj    = screenSpaceOrtho dF 
             bufU        <- singleUniform (proj, convert c)
-            bufV :: Buffer os (B4 Float) <- newBuffer (6 * length dxs)
             let vs      = concat [ [ x | (x, _uv) <- rect (w,h) 0 (x + w/2, y + h/2, z) ] | ((w,h), (x,y,z)) <- dxs ]
-            writeBuffer bufV 0 vs
-            render (do  arrayV  <- newVertexArray bufV
-                        let  p  = toPrimitiveArray TriangleList arrayV
+            writeBuffer (vrRectVBuffer (rVideo r)) 0 vs
+            render (do  arrayV  <- newVertexArray (vrRectVBuffer (rVideo r))
+                        let  p  = toPrimitiveArray TriangleList (takeVertices (6 * length dxs) arrayV)
                              u  = bufU
                         sC (dF, u, p))
     where   win     = vrWindow (rVideo r)

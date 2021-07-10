@@ -58,7 +58,8 @@ instance Platform (FairyBow os) where
                 tcR             <- liftIO (newIORef newCache)
                 sB              <- compileShader (blit w)
                 sF              <- compileShader (fill w)
-                (bV, bI)        <- newDummyBuffers
+                (bVB, bVR)      <- newBatchBuffers
+                (bVD, bID)      <- newDummyBuffers
                 t               <- newDummyTexture
                 c               <- newDummyChunk
                 sD              <- compileShader (fst (colorDepthOnScreen w))
@@ -67,7 +68,7 @@ instance Platform (FairyBow os) where
                     lr                                  = LoadingResources acR bcR mcR tcR
                     rr                                  = RandomResources rR
                     tr                                  = TimingResources tR
-                    vr                                  = VideoResources sB bV bI sD t sF w
+                    vr                                  = VideoResources bVB sB bVD bID sD t sF bVR w
                     r                                   = Resources ar lr ir rr tr vr
                     key k _ KeyState'Released _         = modifyIORef' kR (S.delete k)
                     key k _ KeyState'Pressed _          = modifyIORef' kR (S.insert k)
@@ -86,7 +87,8 @@ data AudioResources
     = AudioResources {  arDummyChunk    :: SDL.Mixer.Chunk    }
 
 data VideoResources os
-    = VideoResources {  vrBlitShader    :: CompiledShader os
+    = VideoResources {  vrBlitVBuffer   :: Buffer os (B4 Float, B2 Float),
+                        vrBlitShader    :: CompiledShader os
                                             (   V2 Int,
                                                 Buffer os (Uniform (V4 (B4 Float), B4 Float)),
                                                 PrimitiveArray Triangles (B4 Float, B2 Float),
@@ -103,6 +105,7 @@ data VideoResources os
                                                 Buffer os (Uniform (    V4 (B4 Float),
                                                                         B4 Float)),
                                                 PrimitiveArray Triangles (B4 Float)     ),  
+                        vrRectVBuffer   :: Buffer os (B4 Float),
                         vrWindow        :: Window os RGBAFloat Depth    }
 
 data RandomResources
@@ -148,3 +151,7 @@ newDummyBuffers = do    let  vs :: [(Point V3 Float, Color)]
                         writeBuffer bufV 0 (map attrib vs)
                         writeBuffer bufI 0 (map fromIntegral is)
                         return (bufV, bufI)
+
+newBatchBuffers = do    bufVBlit    <- newBuffer (floor (2 ** 15)) :: ContextT Handle os IO (Buffer os (B4 Float, B2 Float))
+                        bufVRect    <- newBuffer (floor (2 ** 19)) :: ContextT Handle os IO (Buffer os (B4 Float))
+                        return (bufVBlit, bufVRect)
