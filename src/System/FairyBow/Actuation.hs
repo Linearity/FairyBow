@@ -25,7 +25,8 @@ instance ActuatePlatform (FairyBow os) where
                         = Actuation [Command (FairyBow os)]
     actuate r (Actuation cs) = do   render (do  clearWindowColor win (V4 1 1 1 1)
                                                 clearWindowDepth win 1)
-                                    batch r cs
+                                    dF <- getFrameBufferSize win
+                                    batch r dF cs
                                     swapWindowBuffers win
         where   win = vrWindow (rVideo r)
 
@@ -74,47 +75,34 @@ data BatchElement os where
                                 -> (Double, Double, Double)
                                 -> BatchElement os
 
-batch r cs  = foldlWithKey accumulate (return ()) table
-    where   table   = foldl tabulate empty cs
-            accumulate x k es
-                    = x >> executeBatch r k es
-            tabulate :: Map (BatchKey os) [BatchElement os]
-                            -> Command (FairyBow os)
-                            -> Map (BatchKey os) [BatchElement os]
-            tabulate t (Blit b c (w, h) r (x, y, z))
-                    = insertWith    (++)
-                                    (BlitBatch z b c)
-                                    [BlitElement (w, h) r (x, y, z)]
-                                    t
-            tabulate t (DirectOut a)
-                    = insertWith    (++)
-                                    DirectBatch
-                                    [DirectElement a]
-                                    t
-            tabulate t (Rasterize   (m :: Mesh v (FairyBow os))
+batch r dF cs = void (traverseWithKey (executeBatch r dF) table)
+    where   table   = fromListWith (++) (map withKey cs) --foldl' tabulate empty cs
+            -- accumulate x k es
+            --         = x >> executeBatch r k es
+            withKey :: Command (FairyBow os)
+                        -> (BatchKey os, [BatchElement os])
+            withKey (Blit b c (w, h) r (x, y, z))
+                = (BlitBatch z b c, [BlitElement (w, h) r (x, y, z)])
+            withKey (DirectOut a)
+                = (DirectBatch, [])
+            withKey (Rasterize  (m :: Mesh v (FairyBow os))
                                     (s :: Shading v u (FairyBow os)))
                 | Just Refl  <- eqT :: Maybe (u :~: (M44 Float, M44 Float)),
                   Just Refl  <- eqT :: Maybe (v :~: (Point V3 Float, Color))
                     = let Shading (eqsC, f) = s
-                        in insertWith   (++)
-                                        (RasterizeBatch eqsC)
-                                        [RasterizeElement m f]
-                                        t
+                        in (RasterizeBatch eqsC, [RasterizeElement m f])
                 | otherwise
-                    = t
-            tabulate t (Rectangle c (w, h) (x, y, z))
-                    = insertWith    (++)
-                                    (RectangleBatch c)
-                                    [RectangleElement (w, h) (x, y, z)]
-                                    t
+                    = (DirectBatch, [])
+            withKey (Rectangle c (w, h) (x, y, z))
+                    = (RectangleBatch c, [RectangleElement (w, h) (x, y, z)])
 
-executeBatch r (BlitBatch z b c) es
-    = execBlit r b c [(s, r, x) | BlitElement s r x <- es]
-executeBatch r DirectBatch es
+executeBatch r dF (BlitBatch z b c) es
+    = execBlit r dF b c [(s, r, x) | BlitElement s r x <- es]
+executeBatch r _ DirectBatch es
     = sequence_ [liftIO a | DirectElement a <- es]
-executeBatch r (RasterizeBatch (EqCompiledShader (_, sC))) es
+executeBatch r _ (RasterizeBatch (EqCompiledShader (_, sC))) es
     = execRasterize r sC [(m, f) | RasterizeElement m f <- es]
-executeBatch r (RectangleBatch c) es
+executeBatch r _ (RectangleBatch c) es
     = execRectangle r c [(d, x) | RectangleElement d x <- es]
 
 execRasterize r sC mfs
@@ -176,11 +164,10 @@ splitArrays aV aI bs    = (arraysV, arraysI)
             arraysI  = [    takeIndices n (dropIndices k aI)
                                 | (n, k) <- lengthsI `zip` offsetsI     ]
 
-execBlit r b@Bitmap { bitmapTexture = Nothing } c srxs
-    = execBlit r (b { bitmapTexture = bitmapTexture (dummy r) }) c srxs
-execBlit r (Bitmap _ (wB, hB) (Just t)) c srxs
-    = do    dF          <- getFrameBufferSize win
-            let proj    = screenSpaceOrtho dF
+execBlit r dF b@Bitmap { bitmapTexture = Nothing } c srxs
+    = execBlit r dF (b { bitmapTexture = bitmapTexture (dummy r) }) c srxs
+execBlit r dF (Bitmap _ (wB, hB) (Just t)) c srxs
+    = do    let proj    = screenSpaceOrtho dF
             bufU        <- singleUniform (proj, convert c)
             let wBF     = fromIntegral wB
                 hBF     = fromIntegral hB 
