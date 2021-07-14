@@ -36,7 +36,8 @@ data AudioResources
     = AudioResources {  arDummyChunk    :: SDL.Mixer.Chunk    }
 
 data VideoResources os
-    = VideoResources {  vrBlitVBuffer  :: Buffer os (B4 Float, B2 Float),
+    = VideoResources {  vrBlitUBuffer   :: Buffer os (Uniform (V4 (B4 Float), B4 Float)),
+                        vrBlitVBuffer  :: Buffer os (B4 Float, B2 Float),
                         vrBlitShader    :: CompiledShader os
                                             (   V2 Int,
                                                 Buffer os (Uniform (V4 (B4 Float), B4 Float)),
@@ -54,6 +55,13 @@ data VideoResources os
                                                 Buffer os (Uniform (    V4 (B4 Float),
                                                                         B4 Float)),
                                                 PrimitiveArray Triangles (B4 Float)     ),
+                        vrRasterizeVBuffer :: Buffer os (B4 Float, B4 Float),
+                        vrRasterizeIBuffer :: Buffer os (B Word32),
+                        vrRasterizeUBuffer :: Buffer os ( Uniform
+                                                            ( V4 (B4 Float)
+                                                            , V4 (B4 Float)
+                                                            )
+                                                        ),
                         vrRectVBuffer   :: Buffer os (B4 Float),
                         vrWindow        :: Window os RGBAFloat Depth    }
 

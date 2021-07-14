@@ -3,7 +3,8 @@
 
 module System.FairyBow.Actuation  where
 
-import           Control.Monad.State
+import           Control.Monad.Reader
+import           Control.Monad.State.Strict
 import           Data.FairyBow.Bitmap
 import           Data.FairyBow.Color
 import           Data.FairyBow.Mesh
@@ -12,7 +13,7 @@ import           Data.Lightarrow.Artifact
 import           Data.Lightarrow.Color
 import           Data.Lightarrow.Mesh
 import           Data.Lightarrow.Shading as LA
-import           Data.Map (Map, empty, foldlWithKey, insertWith)
+import           Data.Map.Strict (empty, Map, traverseWithKey, unionWith)
 import           Data.Typeable
 import           FairyBowPlatformType
 import           Graphics.GPipe hiding (Color)
@@ -22,36 +23,23 @@ import           System.FairyBow.Platform
 
 instance ActuatePlatform (FairyBow os) where
     data Actuation (FairyBow os)
-                        = Actuation [Command (FairyBow os)]
-    actuate r (Actuation cs) = do   render (do  clearWindowColor win (V4 1 1 1 1)
-                                                clearWindowDepth win 1)
-                                    dF <- getFrameBufferSize win
-                                    batch r dF cs
-                                    swapWindowBuffers win
+        = Actuation !(Map (BatchKey os) (StateT (Int, Int, Int, [Int], [Int])
+                                            (ReaderT (Resources (FairyBow os), V2 Int)
+                                                (FairyBow os))
+                                            ()))
+    actuate r (Actuation batches)
+        = do    render (do  clearWindowColor win (V4 1 1 1 1)
+                            clearWindowDepth win 1)
+                dF <- getFrameBufferSize win
+                traverseWithKey (executeBatch r dF) batches
+                swapWindowBuffers win
         where   win = vrWindow (rVideo r)
 
 instance Semigroup (Actuation (FairyBow os)) where
-    Actuation cs1 <> Actuation cs2 = Actuation (cs1 <> cs2)
+    Actuation batches1 <> Actuation batches2 = Actuation (unionWith (>>) batches1 batches2)
 
 instance Monoid (Actuation (FairyBow os)) where
-    mempty = Actuation []
-
-data Command a where
-    Blit        :: Bitmap a
-                        -> Color
-                        -> (Double, Double)
-                        -> Double
-                        -> (Double, Double, Double)
-                        -> Command a
-    DirectOut   :: IO () -> Command a
-    Rasterize   :: (Vertex v, LA.Uniform u) =>
-                        Mesh v a
-                            -> Shading v u a
-                            -> Command a
-    Rectangle   :: Color
-                        -> (Double, Double)
-                        -> (Double, Double, Double)
-                        -> Command a
+    mempty = Actuation empty 
 
 data BatchKey os    =   BlitBatch Double (Bitmap (FairyBow os)) Color
                     |   DirectBatch
@@ -62,132 +50,69 @@ data BatchKey os    =   BlitBatch Double (Bitmap (FairyBow os)) Color
                     |   RectangleBatch Color
     deriving (Eq, Ord)
 
-data BatchElement os where
-    BlitElement         :: (Double, Double)
-                                -> Double
-                                -> (Double, Double, Double)
-                                -> BatchElement os
-    DirectElement       :: IO () -> BatchElement os
-    RasterizeElement    :: Mesh (Point V3 Float, Color) (FairyBow os)
-                                -> UniformFunc (M44 Float, M44 Float)
-                                -> BatchElement os
-    RectangleElement    :: (Double, Double)
-                                -> (Double, Double, Double)
-                                -> BatchElement os
+executeBatch r dF (BlitBatch z b c)
+    = execBlit r dF b c
+executeBatch r dF DirectBatch
+    = void . flip runReaderT (r, dF) . flip runStateT (0, 0, 0, [], [])
+executeBatch r dF (RasterizeBatch (EqCompiledShader (_, sC)))
+    = execRasterize r dF sC
+executeBatch r dF (RectangleBatch c)
+    = execRectangle r dF c
 
-batch r dF cs = void (traverseWithKey (executeBatch r dF) table)
-    where   table   = fromListWith (++) (map withKey cs) --foldl' tabulate empty cs
-            -- accumulate x k es
-            --         = x >> executeBatch r k es
-            withKey :: Command (FairyBow os)
-                        -> (BatchKey os, [BatchElement os])
-            withKey (Blit b c (w, h) r (x, y, z))
-                = (BlitBatch z b c, [BlitElement (w, h) r (x, y, z)])
-            withKey (DirectOut a)
-                = (DirectBatch, [])
-            withKey (Rasterize  (m :: Mesh v (FairyBow os))
-                                    (s :: Shading v u (FairyBow os)))
-                | Just Refl  <- eqT :: Maybe (u :~: (M44 Float, M44 Float)),
-                  Just Refl  <- eqT :: Maybe (v :~: (Point V3 Float, Color))
-                    = let Shading (eqsC, f) = s
-                        in (RasterizeBatch eqsC, [RasterizeElement m f])
-                | otherwise
-                    = (DirectBatch, [])
-            withKey (Rectangle c (w, h) (x, y, z))
-                    = (RectangleBatch c, [RectangleElement (w, h) (x, y, z)])
-
-executeBatch r dF (BlitBatch z b c) es
-    = execBlit r dF b c [(s, r, x) | BlitElement s r x <- es]
-executeBatch r _ DirectBatch es
-    = sequence_ [liftIO a | DirectElement a <- es]
-executeBatch r _ (RasterizeBatch (EqCompiledShader (_, sC))) es
-    = execRasterize r sC [(m, f) | RasterizeElement m f <- es]
-executeBatch r _ (RectangleBatch c) es
-    = execRectangle r c [(d, x) | RectangleElement d x <- es]
-
-execRasterize r sC mfs
-            = do    V2 w h      <- getFrameBufferSize win
-                    bU          <- newBuffer (length ms)
-                    let  draw (aI, aV, k) = sC (Env (V2 w h) aP tex (bU, k))  
-                             where   aP = toPrimitiveArrayIndexed TriangleList aI aV
-                    writeBuffer bU 0 (map ($ V2 w h) fs)
-                    bs          <- mapM (getBuffers r) ms
-                    (bV, bI)    <- joinBuffers bs
+execRasterize r dF sC writeVertsIndicesUniforms
+            = do    let draw (aI, aV, k) = sC (Env dF aP tex (bU, k))  
+                            where   aP = toPrimitiveArrayIndexed TriangleList aI aV
+                        bV = vrRasterizeVBuffer (rVideo r)
+                        bI = vrRasterizeIBuffer (rVideo r)
+                        bU = vrRasterizeUBuffer (rVideo r)
+                    (_, (_, _, _, lengthsV, lengthsI)) <- do
+                        flip runReaderT (r, dF)
+                            (flip runStateT (0, 0, 0, [], [])
+                                writeVertsIndicesUniforms)
                     render (do   aV  <- newVertexArray bV
                                  aI  <- newIndexArray bI Nothing
-                                 let  (arraysV, arraysI) = splitArrays aV aI bs
+                                 let  (arraysV, arraysI) = splitArrays aV aI lengthsV lengthsI
                                  mapM_ draw (zip3 arraysI arraysV [0..]))
-    where  (ms, fs)     = unzip mfs
-           win          = vrWindow (rVideo r)
+    where  win          = vrWindow (rVideo r)
            tex          = vrDummyTexture (rVideo r)
-{-
 
-We extract from a mesh its vertex and index buffers with a separate action
-called |getBuffers|.  This allows us to create new buffers at the last minute
-for meshes with vertices and faces but no buffers.  We could, rather than
-creating new buffers each frame for each such mesh, keep large buffers available
-for these last-minute entries instead.  This is left to the reader as an exercise.
-
--}
-getBuffers r (Mesh _p vs fs mbs)
-    | Just bs <- mbs            = return bs
-    | not (null vs || null fs)  = do    let is = concatMap indices fs
-                                        bV  <- newBuffer (length vs)
-                                        bI  <- newBuffer (length is)
-                                        writeBuffer bV 0 (map attrib vs)
-                                        writeBuffer bI 0 (map fromIntegral is)
-                                        return (bV, bI)
-    | otherwise                 = return (  vrDummyVBuffer (rVideo r),
-                                            vrDummyIBuffer (rVideo r)   )
-
-joinBuffers [b] = return b
-joinBuffers bs  = do    bV  <- newBuffer nV
-                        bI  <- newBuffer nI
-                        runStateT (traverse (catB bV) bvs) 0
-                        runStateT (traverse (catB bI) bis) 0
-                        return (bV, bI)
-    where   bvs         = map fst bs
-            bis         = map snd bs
-            catB t f    = do    k0 <- get
-                                lift (copyBuffer f 0 t k0 (bufferLength f))
-                                put (k0 + bufferLength f)
-            nV          = sum (map bufferLength bvs)
-            nI          = sum (map bufferLength bis)
-
-splitArrays aV aI bs    = (arraysV, arraysI)
-    where   lengthsV = map (bufferLength . fst) bs
-            offsetsV = scanl (+) 0 (init lengthsV)
-            lengthsI = map (bufferLength . snd) bs
+splitArrays aV aI lengthsV lengthsI = (arraysV, arraysI)
+    where   offsetsV = scanl (+) 0 (init lengthsV)
             offsetsI = scanl (+) 0 (init lengthsI)
             arraysV  = [    takeVertices n (dropVertices k aV)
                                 | (n, k) <- lengthsV `zip` offsetsV     ]
             arraysI  = [    takeIndices n (dropIndices k aI)
                                 | (n, k) <- lengthsI `zip` offsetsI     ]
 
-execBlit r dF b@Bitmap { bitmapTexture = Nothing } c srxs
-    = execBlit r dF (b { bitmapTexture = bitmapTexture (dummy r) }) c srxs
-execBlit r dF (Bitmap _ (wB, hB) (Just t)) c srxs
+execBlit r dF b@Bitmap { bitmapTexture = Nothing } c writeVertices
+    = execBlit r dF (b { bitmapTexture = bitmapTexture (dummy r) }) c writeVertices
+execBlit r dF (Bitmap _ (wB, hB) (Just t)) c writeVertices
     = do    let proj    = screenSpaceOrtho dF
-            bufU        <- singleUniform (proj, convert c)
-            let wBF     = fromIntegral wB
-                hBF     = fromIntegral hB 
-                vs      = concat [ rect (w * wBF, h * hBF) r x | ((w, h), r, x) <- srxs ]
-            writeBuffer (vrBlitVBuffer (rVideo r)) 0 vs
+                bufU    = vrBlitUBuffer (rVideo r)
+                wBF     = fromIntegral wB
+                hBF     = fromIntegral hB
+            writeBuffer bufU 0 [(proj, convert c)]
+            (_, (len, _, _, _, _)) <- do
+                flip runReaderT (r, dF)
+                    (flip runStateT (0, 0, 0, [], [])
+                        writeVertices)
             render (do  arrayV  <- newVertexArray (vrBlitVBuffer (rVideo r))
-                        let  p  = toPrimitiveArray TriangleList (takeVertices (6 * length srxs) arrayV)
+                        let  p  = toPrimitiveArray TriangleList (takeVertices len arrayV)
                              u  = bufU
                         sC (dF, u, p, t))
     where   win     = vrWindow (rVideo r)
             sC      = vrBlitShader (rVideo r)
 
-execRectangle r c dxs
-    = do    dF          <- getFrameBufferSize win
-            let proj    = screenSpaceOrtho dF 
-            bufU        <- singleUniform (proj, convert c)
-            let vs      = concat [ [ x | (x, _uv) <- rect (w,h) 0 (x + w/2, y + h/2, z) ] | ((w,h), (x,y,z)) <- dxs ]
-            writeBuffer (vrRectVBuffer (rVideo r)) 0 vs
+execRectangle r dF c writeVertices
+    = do    let proj = screenSpaceOrtho dF 
+                bufU = vrBlitUBuffer (rVideo r)
+            writeBuffer bufU 0 [(proj, convert c)]
+            (_, (len, _, _, _, _)) <- do
+                flip runReaderT (r, dF)
+                    (flip runStateT (0, 0, 0, [], [])
+                        writeVertices)
             render (do  arrayV  <- newVertexArray (vrRectVBuffer (rVideo r))
-                        let  p  = toPrimitiveArray TriangleList (takeVertices (6 * length dxs) arrayV)
+                        let  p  = toPrimitiveArray TriangleList (takeVertices len arrayV)
                              u  = bufU
                         sC (dF, u, p))
     where   win     = vrWindow (rVideo r)
@@ -196,30 +121,11 @@ execRectangle r c dxs
 screenSpaceOrtho d = ortho (-wF'/2) (wF'/2) (-hF'/2) (hF'/2) (-100000) 100000
     where V2 wF' hF' = fmap fromIntegral d 
 
-singleUniform x = do    bufU <- newBuffer 1
-                        writeBuffer bufU 0 [x]
-                        return bufU
-
-rect (w, h) r (x, y, z) = [     (V4 x' y' z' 1, uv)
+rect (V2 w h) !r (V3 x y z) = [ (V4 x' y' z' 1, uv)
                                     |   (V2 xC yC, uv) <- zip corners texCoords,
-                                        let V2 x' y' = fmap realToFrac (V2 x y) + vX + vY
-                                            vX  = fmap realToFrac (w * xC *^ angle r)
-                                            vY  = fmap realToFrac (h * yC *^ perp (angle r))
-                                            --x'  = realToFrac (x + w * xC)
-                                            --y'  = realToFrac (y + h * yC)
-                                            z'  = realToFrac z   ]
-    -- where   corners     = [V2 0 1, V2 0 0, V2 1 1, V2 1 1, V2 0 0, V2 1 0]
+                                        let !(V2 x' y') = fmap realToFrac (V2 x y) + vX + vY
+                                            !vX = fmap realToFrac (w * xC *^ angle r)
+                                            !vY = fmap realToFrac (h * yC *^ perp (angle r))
+                                            !z' = realToFrac z   ]
     where   corners     = [V2 (-0.5) 0.5, V2 (-0.5) (-0.5), V2 0.5 0.5, V2 0.5 0.5, V2 (-0.5) (-0.5), V2 0.5 (-0.5)]
             texCoords   = [V2 0 0, V2 0 1, V2 1 0, V2 1 0, V2 0 1, V2 1 1]
-
-instance Eq (Command a) where
-    _ == _  = False
-
-instance Ord (Command a) where
-    Blit _ _ _ _ (_,_,z1)       `compare`   Blit _ _ _ _ (_,_,z2)       = compare z1 z2
-    Blit {}                     `compare`   Rasterize _ _               = LT
-    Rasterize _ _               `compare`   DirectOut _                 = LT
-    Rasterize _ _               `compare`   Blit {}                     = GT
-    Rectangle _ _ (_,_,z1)      `compare`   Rectangle _ _ (_,_,z2)      = compare z1 z2
-    DirectOut _                 `compare`   Rasterize _ _               = GT
-    _                           `compare`   _                           = EQ
