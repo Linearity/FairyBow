@@ -45,14 +45,10 @@ instance WeakCacheValue (FairyBow os) (Audio (FairyBow os)) where
 instance (  FileLocation (Location (Audio (FairyBow os))),
             WeakCacheValue (FairyBow os) (Audio (FairyBow os))     )
                 => LoadPlatform (Audio (FairyBow os)) (FairyBow os) where
-    request _r a
-        = return (Audio (toPath a) Nothing)
-    load _r b@(Audio _p (Just _))
-        = return b
-    load r (Audio p Nothing)
+    load r a
         = do    let cacheRef = lrAudioCache (rLoading r)
                 cache0          <- liftIO (readIORef cacheRef)
-                (b, cache1)     <- cacheLoad p cache0
+                (b, cache1)     <- cacheLoad (toPath a) cache0
                 liftIO (writeIORef cacheRef cache1)
                 return b
-    unload _r (Audio p _) = return (Audio p Nothing)
+    unload _r _a = return ()

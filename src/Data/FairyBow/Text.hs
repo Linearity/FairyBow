@@ -31,10 +31,9 @@ instance WeakCacheValue (FairyBow os) T.Text where
 
 instance (FileLocation (Location T.Text), WeakCacheValue (FairyBow os) T.Text)
         => LoadPlatform T.Text (FairyBow os) where
-    request _r n    = return (T.pack (toPath n))
-    load r p        = do    let cacheRef = lrTextCache (rLoading r)
+    load r a        = do    let cacheRef = lrTextCache (rLoading r)
                             cache0          <- liftIO (readIORef cacheRef)
-                            (b, cache1)     <- cacheLoad (T.unpack p) cache0
+                            (b, cache1)     <- cacheLoad (toPath a) cache0
                             liftIO (writeIORef cacheRef cache1)
                             return b
-    unload _r _t    = return (T.pack "")
+    unload _r _t    = return ()

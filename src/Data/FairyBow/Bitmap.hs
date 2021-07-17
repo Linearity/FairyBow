@@ -6,6 +6,7 @@ import           Codec.Picture
 import           Control.Exception
 import           Control.Monad.Trans
 import qualified Data.ByteString as B
+import           Data.Hashable
 import           Data.IORef
 import           Data.Lightarrow.Artifact
 import           Data.Lightarrow.Bitmap
@@ -21,23 +22,23 @@ import           System.IO                      ( hFlush
                                                 )
 
 instance ArtifactPlatform (Bitmap (FairyBow os)) (FairyBow os) where 
-    dummy r = Bitmap "dummy" (w, h) (Just t)
+    dummy r = Bitmap (hash "dummy") (w, h) (Just t)
         where   t       = vrDummyTexture (rVideo r)
                 sizes   = texture2DSizes t
                 V2 w h  = head sizes
 
 instance BitmapPlatform (FairyBow os) where
     data Bitmap (FairyBow os)
-        = Bitmap {  bitmapPath          :: FilePath,
+        = Bitmap {  bitmapKey           :: !Int,
                     bitmapDimensions    :: (Int, Int),
                     bitmapTexture       :: Maybe (Texture2D os (Format RGBAFloat))  }
     dimensions (Bitmap _ (w, h) _) = (w, h)
 
 instance Eq (Bitmap (FairyBow os)) where
-    b1 == b2    = bitmapPath b1 == bitmapPath b2
+    b1 == b2    = bitmapKey b1 == bitmapKey b2
 
 instance Ord (Bitmap (FairyBow os)) where
-    b1 <= b2    = bitmapPath b1 <= bitmapPath b2
+    b1 <= b2    = bitmapKey b1 <= bitmapKey b2
 
 deriving instance Show (Codec.Picture.Image Pixel8)
 deriving instance Show (Codec.Picture.Image Pixel16)
@@ -55,23 +56,27 @@ deriving instance Show (Codec.Picture.Image PixelCMYK8)
 deriving instance Show (Codec.Picture.Image PixelCMYK16)
 deriving instance Show DynamicImage
 
-instance WeakCacheValue (FairyBow os) (Bitmap (FairyBow os)) where
-    type Name (Bitmap (FairyBow os)) = FilePath
-    load p = do     let f (SomeException _) = return B.empty
+instance ( Ord (Location (Bitmap (FairyBow os)))
+         , FileLocation (Location (Bitmap (FairyBow os))) ) =>
+            WeakCacheValue (FairyBow os) (Bitmap (FairyBow os)) where
+    type Name (Bitmap (FairyBow os)) = Location (Bitmap (FairyBow os))
+    load a = do     let f (SomeException _) = return B.empty
+                        p                   = toPath a
+                        key                 = hash p
                     bs  <- liftIO (catch (B.readFile p) f)
                     liftIO (do  putStr ("Load / decode " ++ show (B.length bs)
                                             ++ " PNG bytes from " ++ show p ++ "...")
                                 hFlush stdout)
                     case decodePng bs of
                         Left _      -> do   liftIO (putStrLn "failed.")
-                                            return (Bitmap p (-1, -1) Nothing)
+                                            return (Bitmap key (-1, -1) Nothing)
                         Right (ImageRGBA8 image)
                                     -> do   liftIO (putStrLn "done.")
                                             let     colors  = imageData image
                                                     w       = imageWidth image
                                                     h       = imageHeight image
                                             t   <- writeNewTexture colors w h
-                                            return (Bitmap p (w, h) (Just t))
+                                            return (Bitmap key (w, h) (Just t))
                         Right (ImageRGB8 image)
                                     -> do   liftIO (putStrLn "done.")
                                             let     colors  = SV.generate n mkColor
@@ -85,7 +90,7 @@ instance WeakCacheValue (FairyBow os) (Bitmap (FairyBow os)) where
                                                             = solids ! (k - (k `div` 4))
                                                     solids  = imageData image
                                             t   <- writeNewTexture colors w h
-                                            return (Bitmap p (w, h) (Just t))
+                                            return (Bitmap key (w, h) (Just t))
                         Right (ImageYA8 image)
                                     -> do   liftIO (putStrLn "done.")
                                             let     colors  = SV.generate n mkColor
@@ -99,7 +104,7 @@ instance WeakCacheValue (FairyBow os) (Bitmap (FairyBow os)) where
                                                             = grays ! (k `div` 2)
                                                     grays   = imageData image
                                             t   <- writeNewTexture colors w h
-                                            return (Bitmap p (w, h) (Just t))
+                                            return (Bitmap key (w, h) (Just t))
                         Right (ImageY8 image)
                                     -> do   liftIO (putStrLn "done.")
                                             let     colors  = SV.generate n mkColor
@@ -113,11 +118,11 @@ instance WeakCacheValue (FairyBow os) (Bitmap (FairyBow os)) where
                                                             = grays ! (k `div` 4)
                                                     grays   = imageData image
                                             t   <- writeNewTexture colors w h
-                                            return (Bitmap p (w, h) (Just t))
+                                            return (Bitmap key (w, h) (Just t))
                         Right other -> do   liftIO (putStrLn "failed.")
                                             liftIO (putStr "Unhandled format: ")
                                             liftIO (print other)
-                                            return (Bitmap p (-1, -1) Nothing)
+                                            return (Bitmap key (-1, -1) Nothing)
 
 writeNewTexture colors w h
     = do    t   <- newTexture2D RGBA8 (V2 w h) 1
@@ -128,20 +133,15 @@ writeNewTexture colors w h
             liftIO (putStrLn "done.")
             return t
 
-instance (  FileLocation (Location (Bitmap (FairyBow os))),
-            WeakCacheValue (FairyBow os) (Bitmap (FairyBow os))     )
+instance (  WeakCacheValue (FairyBow os) (Bitmap (FairyBow os))     )
                 => LoadPlatform (Bitmap (FairyBow os)) (FairyBow os) where
-    request _r a
-        = return (Bitmap (toPath a) (-1, -1) Nothing)
-    load _r b@(Bitmap _p _ (Just _))
-        = return b
-    load r (Bitmap p _ Nothing)
+    load r a
         = do    let cacheRef = lrBitmapCache (rLoading r)
                 cache0          <- liftIO (readIORef cacheRef)
-                (b, cache1)     <- cacheLoad p cache0
+                (b, cache1)     <- cacheLoad a cache0
                 liftIO (writeIORef cacheRef cache1)
                 return b
-    unload _r _b@(Bitmap p _d _) = return (Bitmap p (-1,-1) Nothing)
+    unload _r _b = return ()
 
 
 pixels :: SV.Storable a => SV.Vector a -> [V4 a]

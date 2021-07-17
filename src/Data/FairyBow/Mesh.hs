@@ -126,14 +126,10 @@ instance WeakCacheValue (FairyBow os) (Mesh (Point V3 Float, Color) (FairyBow os
 instance (  FileLocation (Location (Mesh (Point V3 Float, Color) (FairyBow os))),
             WeakCacheValue (FairyBow os) (Mesh (Point V3 Float, Color) (FairyBow os))   )
                 => LoadPlatform (Mesh (Point V3 Float, Color) (FairyBow os)) (FairyBow os) where
-    request _r l
-        = return (Mesh (toPath l) [] [] Nothing)
-    load _r m@(Mesh _ _ _ (Just _))
-        = return m
-    load r (Mesh p _ _ Nothing)
+    load r l
         = do    let cacheRef = lrMeshCache (rLoading r)
                 cache0          <- liftIO (readIORef cacheRef)
-                (m, cache1)     <- cacheLoad p cache0
+                (m, cache1)     <- cacheLoad (toPath l) cache0
                 liftIO (writeIORef cacheRef cache1)
                 return m
-    unload _ (Mesh p _ _ _) = return (Mesh p [] [] Nothing)
+    unload _ _ = return ()

@@ -72,11 +72,10 @@ instance Enum (Location (Shading (Point V3 Float, Color) (M44 Float, M44 Float) 
                                             (M44 Float, M44 Float)
                                             (FairyBow os))
                                 (FairyBow os)     where
-    request r l     = do    if k >= 0 && k < length vertexColorShadings
+    load r l        = do    if k >= 0 && k < length vertexColorShadings
                             then do  let (s, f) = (vertexColorShadings !! k) (vrWindow (rVideo r))
                                      sC <- compileShader s
                                      return (Shading (EqCompiledShader (k, sC), f))
                             else return (dummy r)
         where k = fromEnum l
-    load _ d        = return d
-    unload _ d      = return d
+    unload _ _      = return ()
