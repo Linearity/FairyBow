@@ -19,7 +19,7 @@ fill win = do  streamP      <- toPrimitiveStream (\(_, _, p) -> p)
                     streamP2    = fmap f streamP
                streamF      <- rasterize optS streamP2
                let  streamF2    = withRasterizedInfo
-                                    (\a r -> let V4 x y z w = rasterizedFragCoord r
+                                    (\a r -> let V4 _ _ z _ = rasterizedFragCoord r
                                                 in (a, z))
                                     streamF
                drawWindowColorDepth (const (win, optC, optD)) streamF2

@@ -7,7 +7,7 @@ import Control.Monad.State.Strict
 import Data.FairyBow.Mesh
 import Data.FairyBow.Shading
 import Data.Lightarrow.Color
-import Data.Map.Strict (empty, singleton)
+import Data.Map.Strict (singleton)
 import FairyBowPlatformType
 import Graphics.GPipe hiding (Color)
 import Graphics.Lightarrow.Rasterize
@@ -18,7 +18,7 @@ import System.Lightarrow.Actuation
 
 instance ActuatePlatform (FairyBow os)
             => RasterizePlatform (Point V3 Float, Color) (M44 Float, M44 Float) (FairyBow os) where
-    rasterize (Mesh _ vs fs mbs) (Shading (eqsC, f))
+    rasterize (Mesh _ _vs _fs mbs) (Shading (eqsC, f))
         = Actuation (singleton (RasterizeBatch eqsC) action)
         where
             action = do     toBufV <- asks (vrRasterizeVBuffer . rVideo . fst)

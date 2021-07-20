@@ -7,17 +7,12 @@ import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           Data.FairyBow.Bitmap
 import           Data.FairyBow.Color
-import           Data.FairyBow.Mesh
 import           Data.FairyBow.Shading
 import           Data.Lightarrow.Artifact
 import           Data.Lightarrow.Color
-import           Data.Lightarrow.Mesh
-import           Data.Lightarrow.Shading as LA
 import           Data.Map.Strict (empty, Map, traverseWithKey, unionWith)
-import           Data.Typeable
 import           FairyBowPlatformType
 import           Graphics.GPipe hiding (Color)
-import           Linear.Affine
 import           System.Lightarrow.Actuation
 import           System.FairyBow.Platform
 
@@ -50,7 +45,7 @@ data BatchKey os    =   BlitBatch Double (Bitmap (FairyBow os)) Color
                     |   RectangleBatch Color
     deriving (Eq, Ord)
 
-executeBatch r dF (BlitBatch z b c)
+executeBatch r dF (BlitBatch _z b c)
     = execBlit r dF b c
 executeBatch r dF DirectBatch
     = void . flip runReaderT (r, dF) . flip runStateT (0, 0, 0, [], [])
@@ -73,8 +68,7 @@ execRasterize r dF sC writeVertsIndicesUniforms
                                  aI  <- newIndexArray bI Nothing
                                  let  (arraysV, arraysI) = splitArrays aV aI lengthsV lengthsI
                                  mapM_ draw (zip3 arraysI arraysV [0..]))
-    where  win          = vrWindow (rVideo r)
-           tex          = vrDummyTexture (rVideo r)
+    where  tex          = vrDummyTexture (rVideo r)
 
 splitArrays aV aI lengthsV lengthsI = (arraysV, arraysI)
     where   offsetsV = scanl (+) 0 (init lengthsV)
@@ -86,11 +80,9 @@ splitArrays aV aI lengthsV lengthsI = (arraysV, arraysI)
 
 execBlit r dF b@Bitmap { bitmapTexture = Nothing } c writeVertices
     = execBlit r dF (b { bitmapTexture = bitmapTexture (dummy r) }) c writeVertices
-execBlit r dF (Bitmap _ (wB, hB) (Just t)) c writeVertices
+execBlit r dF (Bitmap _ _ (Just t)) c writeVertices
     = do    let proj    = screenSpaceOrtho dF
                 bufU    = vrBlitUBuffer (rVideo r)
-                wBF     = fromIntegral wB
-                hBF     = fromIntegral hB
             writeBuffer bufU 0 [(proj, convert c)]
             (_, (len, _, _, _, _)) <- do
                 flip runReaderT (r, dF)
@@ -100,8 +92,7 @@ execBlit r dF (Bitmap _ (wB, hB) (Just t)) c writeVertices
                         let  p  = toPrimitiveArray TriangleList (takeVertices len arrayV)
                              u  = bufU
                         sC (dF, u, p, t))
-    where   win     = vrWindow (rVideo r)
-            sC      = vrBlitShader (rVideo r)
+    where   sC      = vrBlitShader (rVideo r)
 
 execRectangle r dF c writeVertices
     = do    let proj = screenSpaceOrtho dF 
@@ -115,8 +106,7 @@ execRectangle r dF c writeVertices
                         let  p  = toPrimitiveArray TriangleList (takeVertices len arrayV)
                              u  = bufU
                         sC (dF, u, p))
-    where   win     = vrWindow (rVideo r)
-            sC      = vrFillShader (rVideo r)
+    where   sC      = vrFillShader (rVideo r)
 
 screenSpaceOrtho d = ortho (-wF'/2) (wF'/2) (-hF'/2) (hF'/2) (-100000) 100000
     where V2 wF' hF' = fmap fromIntegral d 

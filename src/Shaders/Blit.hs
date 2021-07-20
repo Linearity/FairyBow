@@ -25,7 +25,7 @@ blit win = do  streamP      <- toPrimitiveStream (\(_, _, p, _) -> p)
                     streamF2    = fmap sampling streamF 
                     streamF3    = fmap (* fmap toFloat c) streamF2
                     streamF4    = withRasterizedInfo
-                                    (\a r -> let V4 x y z w = rasterizedFragCoord r
+                                    (\a r -> let V4 _ _ z _ = rasterizedFragCoord r
                                                 in (a, z))
                                     streamF3
                drawWindowColorDepth (const (win, optC, optD)) streamF4

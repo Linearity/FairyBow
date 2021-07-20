@@ -1,3 +1,3 @@
-module Sound.FairyBow (     module Sound.FairyBow.Mixer  ) where
+module Sound.FairyBow where
 
 import Sound.FairyBow.Mixer()

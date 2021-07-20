@@ -1,6 +1,4 @@
-module Graphics.FairyBow (  module Graphics.FairyBow.Blit,
-                            module Graphics.FairyBow.Rasterize,
-                            module Graphics.FairyBow.Rectangle  ) where
+module Graphics.FairyBow where
 
 import Graphics.FairyBow.Blit()
 import Graphics.FairyBow.Rasterize()

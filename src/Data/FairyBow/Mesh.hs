@@ -100,12 +100,11 @@ instance WeakCacheValue (FairyBow os) (Mesh (Point V3 Float, Color) (FairyBow os
                                             fs      = V.toList (V.map (convertF . WF.elValue) ofs)
                                             convertV (WF.Location x y z _)
                                                 = P (V3 x y z)
-                                            convertF (WF.Face a b c r)
+                                            convertF (WF.Face a b c _)
                                                 = Triangle  (WF.faceLocIndex a - 1)
                                                             (WF.faceLocIndex b - 1)
                                                             (WF.faceLocIndex c - 1)
                                             ls      = WF.objLocations object
-                                            ps      = WF.objPoints object
                                             ofs     = WF.objFaces object
                                     bufV        <- newBuffer (length vs)
                                                     :: ContextT Handle os IO (Buffer os (B4 Float, B4 Float))

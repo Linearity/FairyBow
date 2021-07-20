@@ -19,7 +19,7 @@ colorDepthOnScreen win = (shader, defaultUniformFunc)
                                       f (p, c)  = (xform !* p, c)
                                       streamP2  = fmap f streamP
                                  streamF  <- rasterize optS streamP2
-                                 let streamF2 = withRasterizedInfo (\a r -> let V4 x y z w = rasterizedFragCoord r in (a, z)) streamF
+                                 let streamF2 = withRasterizedInfo (\a r -> let V4 _ _ z _ = rasterizedFragCoord r in (a, z)) streamF
                                  drawWindowColorDepth (const (win, optC, optD)) streamF2
            optS env       = let d = eFrameSize env in (side, port d, depth)
            side           = FrontAndBack

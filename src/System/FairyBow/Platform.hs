@@ -39,8 +39,7 @@ instance Platform (FairyBow os) where
                             rRandom     :: RandomResources,
                             rTiming     :: TimingResources,
                             rVideo      :: VideoResources os     }
-    setup = do  t               <- liftIO getSystemTime
-                tR              <- liftIO (newIORef M.empty)
+    setup = do  tR              <- liftIO (newIORef M.empty)
                 w               <- newWindow (WindowFormatColorDepth RGBA8 Depth32)
                                       ((defaultWindowConfig "You found the Fairy Bow!")
                                         {   configWidth     = 160 * 4,

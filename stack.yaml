@@ -17,7 +17,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-16.22
+resolver: lts-18.2
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -42,9 +42,9 @@ packages:
 #
 extra-deps:
   - git: https://github.com/Linearity/lightarrow.git
-    commit: 4330ac3ec812cc036de1df8782945ca5766a2b3a
+    commit: 9d7faf48b2a487a73b08223719f54d6280bfa094
   - git: https://github.com/Linearity/dunai.git
-    commit: 80b23457458e07939c1e7bc575b19ebfc30b051e
+    commit: 638c5725b5ac7f24d1695e0a738e610d663fca1f
     subdirs:
       - dunai
       - dunai-frp-bearriver
@@ -55,7 +55,8 @@ extra-deps:
   - bindings-GLFW-3.2.1.1
   - GLFW-b-3.2.1.1
   - GPipe-GLFW-1.4.1.2
-  - wavefront-0.7.1.4
+  - git: https://github.com/Linearity/wavefront.git
+    commit: 3afc4750dc384251354b8e5e573d87445551e8ae
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
@@ -82,4 +83,4 @@ extra-deps:
 # compiler-check: newer-minor
 #
 ghc-options:
-    "$locals": -Werror=unused-imports
+    "$locals": -W
